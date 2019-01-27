@@ -28,32 +28,53 @@ username = sys.argv[1]
 server_host = sys.argv[2]
 server_port = int(sys.argv[3])
 
-print("{} is connecting to server {}:{}".format(username, server_host, server_port))
-
 # Message queue of items to be printed to the screen
 printerQueue = queue.Queue()
 
-# listenerThread will be passed a socket connection and will listen for incoming messages on that connection
+# Messages received from a listener
+recvQueue = queue.Queue()
+
+# listenerThread will be passed a socket and will listen for incoming messages on that connection
+# Received messages will be added to the recvQueue for processing
 class listenerThread(threading.Thread):
-	def __init__(self, threadID, connection):
+	def __init__(self, netSock, port):
 		threading.Thread.__init__(self)
-		self.threadID = threadID
-		self.connection = connection
+		self.netSock = netSock
+		self.listenPort = port
 
 	def run(self):
-		print('Thread {} started'.format(threadID))
+		print("listenerThread started")
+		while True:
+			recvQueue.put(self.netSock.recvfrom(self.listenPort))
+			
 
-# printerThread will monitor the printerQueue list and when it contains items, they will be printed
+
+# printerThread will monitor the printerQueue and print any items it contains
 class printerThread(threading.Thread):
-	def __init__(self, threadID, displayQueue): 
+	def __init__(self, dispQueue): 
 		threading.Thread.__init__(self)
-		self.displayQueue = displayQueue
+		self.displayQueue = dispQueue
 
 	def run(self):
-		while true:
+		print("printerThread started")
+		while True:
 			if not displayQueue.empty() :
 				print(displayQueue.get())
 				
 
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
+
+	udpListenerThread = listenerThread(udpSocket, 9876)
+	udpListenerThread.start()
+
+
+	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcpSocket:
+
+		try:
+			tcpSocket.connect(server_host, server_port)
+			my_ip = tcpSocket.getsockname()[0]
+		except:
+			print("TCP Connection to Server Failed")
+			sys.exit()
 
 
