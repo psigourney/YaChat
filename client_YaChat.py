@@ -24,16 +24,29 @@ if len(sys.argv) != 4:
 	print("Usage: client.py <screen_name> <server_host> <server_port>")
 	sys.exit()
 
-username = sys.argv[1]
+myUsername = sys.argv[1]
 server_host = sys.argv[2]
 server_port = int(sys.argv[3])
 
-# Message queue of items to be printed to the screen
-printerQueue = queue.Queue()
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
+		try:
+			udpSocket.connect(('8.8.8.8', 80))
+			my_ip = udpSocket.getsockname()[0]
+			print("my_ip: ", my_ip)
+		except:
+			print("TCP Connection to Test Server Failed")
+			sys.exit()
 
-# Messages received from a listener
-recvQueue = queue.Queue()
 
+udpListenPort = 9876
+
+class User:
+	def __init__(self, name, ip, port):
+		self.name = name
+		self.ip = ip
+		self.port = int(port)
+
+		
 # listenerThread will be passed a socket and will listen for incoming messages on that connection
 # Received messages will be added to the recvQueue for processing
 class listenerThread(threading.Thread):
@@ -44,37 +57,101 @@ class listenerThread(threading.Thread):
 
 	def run(self):
 		print("listenerThread started")
+		#self.netSock.bind((my_ip, self.listenPort))
 		while True:
-			recvQueue.put(self.netSock.recvfrom(self.listenPort))
-			
-
-
-# printerThread will monitor the printerQueue and print any items it contains
-class printerThread(threading.Thread):
-	def __init__(self, dispQueue): 
-		threading.Thread.__init__(self)
-		self.displayQueue = dispQueue
-
-	def run(self):
-		print("printerThread started")
-		while True:
-			if not displayQueue.empty() :
-				print(displayQueue.get())
+			replyMsg = ""
+			while '\n' not in replyMsg:
+				reply = self.netSock.recv(4096)
+				replyMsg += reply.decode('utf8')
+				print("UDP message received:", replyMsg)
 				
+			parseUDPMsg(replyMsg)
+			
+			
+def parseUDPMsg(message):
+	messageArray = message.split(' ')
+	if len(messageArray) < 2:
+		print("Received invalid UDP message: ", message)
+		return
+	if messageArray[0] == 'MESG':
+		messageText = ""
+		for word in messageArray[2:]:
+			messageText += word
+		print("{}: {}".format(messageArray[1], messageText))
+	elif messageArray[0] == 'JOIN':
+		newUser = User(messageArray[1], messageArray[2], messageArray[3])
+		userList.append(newUser)
+	elif messageArray[0] == 'EXIT':
+		removeUser(messageArray[1], userList)
+	
 
+	
+def removeUser(username, userList):
+	for user in userList:
+		if username == user.name:
+			userList.remove(user)
+			return
+
+def sendMessage(messageText, userList):
+	message = "MESG {} {}".format(myUsername, messageText)
+	for user in userList:
+		with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+			rcpt = (user.ip, user.port)
+			sock.sendto(message, rcpt)
+		
+		
+		
+userList = []
+
+# Fork off the UDP listener
+# Establish TCP connection, send HELO, and recieve reply:
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
-
-	udpListenerThread = listenerThread(udpSocket, 9876)
+	udpListenerThread = listenerThread(udpSocket, udpListenPort)
 	udpListenerThread.start()
 
-
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcpSocket:
-
 		try:
-			tcpSocket.connect(server_host, server_port)
+			tcpSocket.connect((server_host, server_port))
 			my_ip = tcpSocket.getsockname()[0]
 		except:
 			print("TCP Connection to Server Failed")
 			sys.exit()
 
+		msg = 'HELO {} {} {}\n'.format(myUsername, my_ip, udpListenPort)
+		tcpSocket.sendall(bytes(msg, 'utf8'))
+		print("Sent:", msg)
+		
+		replyMsg = ""
+		while '\n' not in replyMsg:
+			reply = tcpSocket.recv(4096)
+			replyMsg += reply.decode('utf8')
+					  
+		print("ReplyMsg:", replyMsg)
+		replyArray = replyMsg.split(" ")
+		if len(replyArray) < 2:
+			print("Received invalid TCP message: ", replyMsg)
+			sys.exit()
+		if replyArray[0] == 'RJCT':
+			print("Username rejected")
+			sys.exit()
+		elif replyArray[0] == 'ACPT':
+			print("Accepted: ", replyMsg)
+			removeACPT = replyMsg.split(" ", 1)
+			userArray = removeACPT[1].split(":")
+			print("UserArray size = ", len(userArray))
+			for user in userArray:
+				userParse = user.split(' ')
+				newUser = User(userParse[0], userParse[1], userParse[2])
+				userList.append(newUser)
+		
+		
+		#Our connections are established, now accept user input from keyboard:
+		while True:
+			typing = input("YaChat: ")
+			parsedTyping = typing.split(" ", 1)
+			if parsedTyping[0] == 'EXIT':
+				tcpSocket.sendall(b'EXIT')
+				sys.exit()
+			else:
+				sendMessage(typing, userList)
 
