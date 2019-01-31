@@ -32,13 +32,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 		try:
 			udpSocket.connect(('8.8.8.8', 80))
 			my_ip = udpSocket.getsockname()[0]
-			print("my_ip: ", my_ip)
 		except:
 			print("TCP Connection to Test Server Failed")
 			sys.exit()
 
 
-udpListenPort = 9876
+udpListenPort = 9989
 
 class User:
 	def __init__(self, name, ip, port):
@@ -56,14 +55,15 @@ class listenerThread(threading.Thread):
 		self.listenPort = port
 
 	def run(self):
-		print("listenerThread started")
-		#self.netSock.bind((my_ip, self.listenPort))
+		self.netSock.bind((my_ip, self.listenPort))
 		while True:
 			replyMsg = ""
-			while '\n' not in replyMsg:
+			while '\n' not in replyMsg and self.netSock:
 				reply = self.netSock.recv(4096)
 				replyMsg += reply.decode('utf8')
-				print("UDP message received:", replyMsg)
+			
+			if replyMsg == 'DIE!\n':
+				break
 				
 			parseUDPMsg(replyMsg)
 			
@@ -77,14 +77,19 @@ def parseUDPMsg(message):
 		messageText = ""
 		for word in messageArray[2:]:
 			messageText += word
-		print("{}: {}".format(messageArray[1], messageText))
+		print("\n{}: {}".format(messageArray[1], messageText))
 	elif messageArray[0] == 'JOIN':
 		newUser = User(messageArray[1], messageArray[2], messageArray[3])
-		userList.append(newUser)
+		if not knownUser(newUser.name, userList):
+			userList.append(newUser)
 	elif messageArray[0] == 'EXIT':
 		removeUser(messageArray[1], userList)
 	
-
+def knownUser(username, userList):
+	for user in userList:
+		if username == user.name:
+			return True
+	return False
 	
 def removeUser(username, userList):
 	for user in userList:
@@ -93,13 +98,11 @@ def removeUser(username, userList):
 			return
 
 def sendMessage(messageText, userList):
-	message = "MESG {} {}".format(myUsername, messageText)
+	message = "MESG {} {}\n".format(myUsername, messageText)
 	for user in userList:
 		with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
 			rcpt = (user.ip, user.port)
-			sock.sendto(message, rcpt)
-		
-		
+			sock.sendto(bytes(message, 'utf8'), rcpt)
 		
 userList = []
 
@@ -112,21 +115,19 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcpSocket:
 		try:
 			tcpSocket.connect((server_host, server_port))
-			my_ip = tcpSocket.getsockname()[0]
+
 		except:
 			print("TCP Connection to Server Failed")
 			sys.exit()
 
 		msg = 'HELO {} {} {}\n'.format(myUsername, my_ip, udpListenPort)
 		tcpSocket.sendall(bytes(msg, 'utf8'))
-		print("Sent:", msg)
 		
 		replyMsg = ""
 		while '\n' not in replyMsg:
 			reply = tcpSocket.recv(4096)
 			replyMsg += reply.decode('utf8')
 					  
-		print("ReplyMsg:", replyMsg)
 		replyArray = replyMsg.split(" ")
 		if len(replyArray) < 2:
 			print("Received invalid TCP message: ", replyMsg)
@@ -135,23 +136,28 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 			print("Username rejected")
 			sys.exit()
 		elif replyArray[0] == 'ACPT':
-			print("Accepted: ", replyMsg)
 			removeACPT = replyMsg.split(" ", 1)
 			userArray = removeACPT[1].split(":")
-			print("UserArray size = ", len(userArray))
+		
 			for user in userArray:
 				userParse = user.split(' ')
 				newUser = User(userParse[0], userParse[1], userParse[2])
-				userList.append(newUser)
+				if not knownUser(newUser.name, userList):
+					userList.append(newUser)
 		
 		
 		#Our connections are established, now accept user input from keyboard:
 		while True:
-			typing = input("YaChat: ")
+			typing = input()
 			parsedTyping = typing.split(" ", 1)
 			if parsedTyping[0] == 'EXIT':
-				tcpSocket.sendall(b'EXIT')
-				sys.exit()
+				tcpSocket.sendall(b'EXIT\n')
+				
+				#Kill off our UDP listener before we exit...
+				with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+					rcpt = (my_ip, udpListenPort)
+					sock.sendto(bytes('DIE!\n', 'utf8'), rcpt)		
+					break
 			else:
 				sendMessage(typing, userList)
 
