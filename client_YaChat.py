@@ -11,7 +11,7 @@
 #
 ################################################################
 
-import sys, platform, threading, queue,  socket
+import sys, platform, threading, socket
 
 py_ver = platform.python_version().split('.')[0]
 print("Using Python v.", platform.python_version())
@@ -28,6 +28,7 @@ myUsername = sys.argv[1]
 server_host = sys.argv[2]
 server_port = int(sys.argv[3])
 
+# Make a test connection to find out my local IP address
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 		try:
 			udpSocket.connect(('8.8.8.8', 80))
@@ -36,8 +37,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 			print("TCP Connection to Test Server Failed")
 			sys.exit()
 
-
-udpListenPort = 9989
+udpListenPort = 9988
 
 class User:
 	def __init__(self, name, ip, port):
@@ -47,7 +47,6 @@ class User:
 
 		
 # listenerThread will be passed a socket and will listen for incoming messages on that connection
-# Received messages will be added to the recvQueue for processing
 class listenerThread(threading.Thread):
 	def __init__(self, netSock, port):
 		threading.Thread.__init__(self)
@@ -62,9 +61,11 @@ class listenerThread(threading.Thread):
 				reply = self.netSock.recv(4096)
 				replyMsg += reply.decode('utf8')
 			
-			if replyMsg == 'DIE!\n':
+			replyMsg = replyMsg.strip() #Strip newline char
+			
+			if replyMsg == 'DIE!':
 				break
-				
+			
 			parseUDPMsg(replyMsg)
 			
 			
@@ -76,14 +77,16 @@ def parseUDPMsg(message):
 	if messageArray[0] == 'MESG':
 		messageText = ""
 		for word in messageArray[2:]:
-			messageText += word
-		print("\n{}: {}".format(messageArray[1], messageText))
+			messageText += ' {}'.format(word)
+		print("{}:{}".format(messageArray[1], messageText))
 	elif messageArray[0] == 'JOIN':
 		newUser = User(messageArray[1], messageArray[2], messageArray[3])
 		if not knownUser(newUser.name, userList):
 			userList.append(newUser)
+			print("{} has joined the room.".format(messageArray[1]))
 	elif messageArray[0] == 'EXIT':
 		removeUser(messageArray[1], userList)
+		print("{} has left the room.".format(messageArray[1]))
 	
 def knownUser(username, userList):
 	for user in userList:
@@ -132,7 +135,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 		if len(replyArray) < 2:
 			print("Received invalid TCP message: ", replyMsg)
 			sys.exit()
-		if replyArray[0] == 'RJCT':
+		elif replyArray[0] == 'RJCT':
 			print("Username rejected")
 			sys.exit()
 		elif replyArray[0] == 'ACPT':
@@ -144,6 +147,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 				newUser = User(userParse[0], userParse[1], userParse[2])
 				if not knownUser(newUser.name, userList):
 					userList.append(newUser)
+			users = ""
+			for user in userList:
+				users += ' {}'.format(user.name)
+			print("Current Users:{}".format(users))
 		
 		
 		#Our connections are established, now accept user input from keyboard:
@@ -160,4 +167,3 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 					break
 			else:
 				sendMessage(typing, userList)
-
