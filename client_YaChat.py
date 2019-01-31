@@ -46,7 +46,7 @@ class User:
 		self.port = int(port)
 
 		
-# listenerThread will be passed a socket and will listen for incoming messages on that connection
+# listenerThread will be passed a socket and will listen for incoming messages on that port
 class listenerThread(threading.Thread):
 	def __init__(self, netSock, port):
 		threading.Thread.__init__(self)
@@ -57,7 +57,7 @@ class listenerThread(threading.Thread):
 		self.netSock.bind((my_ip, self.listenPort))
 		while True:
 			replyMsg = ""
-			while '\n' not in replyMsg and self.netSock:
+			while '\n' not in replyMsg:
 				reply = self.netSock.recv(4096)
 				replyMsg += reply.decode('utf8')
 			
