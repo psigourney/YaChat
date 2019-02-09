@@ -12,6 +12,7 @@
 ################################################################
 
 import sys, platform, threading, socket
+from time import sleep
 
 py_ver = platform.python_version().split('.')[0]
 print("Using Python v.", platform.python_version())
@@ -37,7 +38,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 			print("TCP Connection to Test Server Failed")
 			sys.exit()
 
-udpListenPort = 9988
+udpListenPort = 0
 
 class User:
 	def __init__(self, name, ip, port):
@@ -51,10 +52,12 @@ class listenerThread(threading.Thread):
 	def __init__(self, netSock, port):
 		threading.Thread.__init__(self)
 		self.netSock = netSock
-		self.listenPort = port
+		self.port = port
 
 	def run(self):
-		self.netSock.bind((my_ip, self.listenPort))
+		self.netSock.bind((my_ip, 0))
+		udpListenPort = udpSocket.getsockname()[1]
+		self.port = udpListenPort
 		while True:
 			replyMsg = ""
 			while '\n' not in replyMsg:
@@ -112,9 +115,14 @@ userList = []
 # Fork off the UDP listener
 # Establish TCP connection, send HELO, and recieve reply:
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
-	udpListenerThread = listenerThread(udpSocket, udpListenPort)
+	udpListenerThread = listenerThread(udpSocket, 0)
 	udpListenerThread.start()
-
+		
+	while udpListenerThread.port == 0:
+		twiddleThumbs = True
+		
+	udpListenPort = udpListenerThread.port
+		
 	with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as tcpSocket:
 		try:
 			tcpSocket.connect((server_host, server_port))
@@ -122,6 +130,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 		except:
 			print("TCP Connection to Server Failed")
 			sys.exit()
+			
 
 		msg = 'HELO {} {} {}\n'.format(myUsername, my_ip, udpListenPort)
 		tcpSocket.sendall(bytes(msg, 'utf8'))
