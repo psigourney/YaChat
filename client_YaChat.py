@@ -10,10 +10,8 @@
 # Usage: client.py <screen_name> <server_host> <server_port>
 #
 ################################################################
-
-import sys, platform, threading, socket
-
-py_ver = platform.python_version().split('.')[0]
+in
+py_ver = platform.python_version().splial
 print("Using Python v.", platform.python_version())
 print("Exit with EXIT")
 
