@@ -12,10 +12,10 @@
 ################################################################
 
 import sys, platform, threading, socket
-from time import sleep
 
 py_ver = platform.python_version().split('.')[0]
 print("Using Python v.", platform.python_version())
+print("Exit with EXIT")
 
 if py_ver != '3':
 	print("Requires Python3")
@@ -61,7 +61,7 @@ class listenerThread(threading.Thread):
 		while True:
 			replyMsg = ""
 			while '\n' not in replyMsg:
-				reply = self.netSock.recv(4096)
+				reply = self.netSock.recv(1024)
 				replyMsg += reply.decode('utf8')
 			
 			replyMsg = replyMsg.strip() #Strip newline char
@@ -137,7 +137,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udpSocket:
 		
 		replyMsg = ""
 		while '\n' not in replyMsg:
-			reply = tcpSocket.recv(4096)
+			reply = tcpSocket.recv(1024)
 			replyMsg += reply.decode('utf8')
 					  
 		replyArray = replyMsg.split(" ")
