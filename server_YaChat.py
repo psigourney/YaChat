@@ -36,7 +36,32 @@ class User:
 
 userList = []
 clientThreadList = []
+
+def userExists(userList, userName):
+    for user in userList:
+        if user.name == userName:
+            return user
+    return False
+
+def addUser(userList, newUser):
+    #Add newUser to the userList, then send UDP 'JOIN' message to all users in list
+    if !userExists(userList, newUser):
+        userList.append(newUser)
         
+        for user in userList:
+            #Send UDP JOIN message to all
+
+def delUser(userList, rmUser):
+    #Remove rmUser from userList, then send UDP 'EXIT' message to all users in the list
+    user = userExists(userList, rmUser)
+    if user is not None:
+        userList.remove(user)
+        
+        for user in userList:
+            #Send UDP EXIT message to all
+    
+
+    
 #Thread will accept as input the (conn, addr) pair returned by socket.accept()
 class clientThread(threading.Thread):
 	def __init__(self, conn, addr):
@@ -63,6 +88,7 @@ class clientThread(threading.Thread):
         self.client_port = clientMsgArray[3].strip()
         newUser = User(self.username, self.client_ip, self.client_port)
         #Check userList for this username, send either ACPT or RJCT reply
+        #
         
         #Expecting EXIT message...
         clientMsg = ""
@@ -79,8 +105,6 @@ class clientThread(threading.Thread):
         #Remove this user from userlist and exit thread
             
         
-
-def
         
 
 
