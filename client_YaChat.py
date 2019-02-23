@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 ################################################################
-# YaChat - Yet Another Chat Program
+# YaChat Client - Yet Another Chat Program
 #
 # Patrick Sigourney - pws482
 # University of Texas at Austin - Spring 2019
