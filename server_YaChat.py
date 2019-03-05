@@ -61,7 +61,7 @@ def addUser(newUser):
     #Add newUser to the userList, then send UDP 'JOIN' message to all users in list
     if userExists(newUser) == False:
         userList.append(newUser)
-        print("{} added to userlist; {} users now".format(newUser.name, len(userList)))
+        print("{} joined; {} users now".format(newUser.name, len(userList)))
 
         message = "JOIN {} {} {}".format(newUser.name, newUser.ip, newUser.port)
         sendMessage(message)
@@ -72,7 +72,7 @@ def delUser(rmUser):
     user = userExists(rmUser)
     if user:
         userList.remove(user)
-        print("{} removed from userlist; {} users now".format(rmUser, len(userList)))
+        print("{} left; {} users now".format(rmUser, len(userList)))
         message = "EXIT {}".format(rmUser)
         sendMessage(message)
 
